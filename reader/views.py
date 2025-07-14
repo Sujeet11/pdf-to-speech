@@ -1,21 +1,22 @@
 from django.shortcuts import render
 from .forms import PDFUploadForm
 import PyPDF2
-import pyttsx3
 import os
 from django.conf import settings
 
 def upload_pdf(request):
     message = ""
+    text = ""
+    
     if request.method == 'POST':
         form = PDFUploadForm(request.POST, request.FILES)
         if form.is_valid():
             pdf_file = request.FILES['pdf_file']
             page_number = form.cleaned_data['page_number'] - 1  # 0-indexed
 
-            # Save the uploaded file to MEDIA_ROOT
+            # Save uploaded file
+            os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
             saved_path = os.path.join(settings.MEDIA_ROOT, pdf_file.name)
-            os.makedirs(settings.MEDIA_ROOT, exist_ok=True)  # Ensure media folder exists
 
             with open(saved_path, 'wb+') as destination:
                 for chunk in pdf_file.chunks():
@@ -26,13 +27,8 @@ def upload_pdf(request):
                     reader = PyPDF2.PdfReader(f)
                     if 0 <= page_number < len(reader.pages):
                         text = reader.pages[page_number].extract_text()
-
                         if text:
-                            engine = pyttsx3.init()
-                            engine.setProperty('volume', 1.0)
-                            engine.say(text)
-                            engine.runAndWait()
-                            message = "✅ Text spoken successfully!"
+                            message = "✅ Text extracted successfully!"
                         else:
                             message = "⚠️ No text found on that page."
                     else:
@@ -42,4 +38,8 @@ def upload_pdf(request):
     else:
         form = PDFUploadForm()
 
-    return render(request, 'reader/upload.html', {'form': form, 'message': message})
+    return render(request, 'reader/upload.html', {
+        'form': form,
+        'message': message,
+        'text': text
+    })
